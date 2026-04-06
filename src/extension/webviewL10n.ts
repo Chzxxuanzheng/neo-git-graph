@@ -55,13 +55,11 @@ export function getWebviewLocalizedStrings() {
     merge: l10n.t("action.merge"),
     reset: l10n.t("action.reset"),
     copyCommitHash: l10n.t("action.copyCommitHash"),
-    copyCommitSubject: l10n.t("action.copyCommitSubject"),
     deleteTag: l10n.t("action.deleteTag"),
     pushTag: l10n.t("action.pushTag"),
     checkoutBranch: l10n.t("action.checkoutBranch"),
     renameBranch: l10n.t("action.renameBranch"),
     deleteBranch: l10n.t("action.deleteBranch"),
-    mergeBranch: l10n.t("action.mergeBranch"),
 
     // label
     labelTag: l10n.t("label.tag"),
