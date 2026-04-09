@@ -2,7 +2,7 @@ import * as vscode from "vscode";
 
 import { AvatarManager } from "./avatarManager";
 import { gitClientFactory } from "./backend/gitClient";
-import { buildExtensionUri } from "./backend/utils/path.util";
+import { buildExtensionUri, getPathFromStr } from "./backend/utils/path.util";
 import { config } from "./config";
 import { DiffDocProvider } from "./diffDocProvider";
 import { registerMessageHandlers } from "./extension/messageHandler";
@@ -19,9 +19,7 @@ import { StatusBarItem } from "./statusBarItem";
 
 export function activate(context: vscode.ExtensionContext) {
   initL10n(context.extensionPath);
-  const outputChannel = vscode.window.createOutputChannel(
-    l10n.t("outputChannel.text"),
-  );
+  const outputChannel = vscode.window.createOutputChannel(l10n.t("outputChannel.text"));
   const extensionState = new ExtensionState(context);
   const avatarManager = new AvatarManager(config.gitPath, extensionState);
   const statusBarItem = new StatusBarItem(context, config);
@@ -46,9 +44,9 @@ export function activate(context: vscode.ExtensionContext) {
 
       if (resource && typeof resource === "object") {
         if (typeof resource?.rootUri?.fsPath === "string") {
-          repoPath = resource.rootUri.fsPath;
+          repoPath = getPathFromStr(resource.rootUri.fsPath);
         } else if (typeof resource?.uri?.fsPath === "string") {
-          repoPath = resource.uri.fsPath;
+          repoPath = getPathFromStr(resource.uri.fsPath);
         }
       }
 
@@ -65,7 +63,7 @@ export function activate(context: vscode.ExtensionContext) {
             currentBridge.post({
               command: "loadRepos",
               repos: repos,
-              lastActiveRepo: repoPath,
+              lastActiveRepo: repoPath
             });
           }
         }
@@ -80,9 +78,9 @@ export function activate(context: vscode.ExtensionContext) {
           enableScripts: true,
           localResourceRoots: [
             buildExtensionUri(context.extensionPath, "media"),
-            buildExtensionUri(context.extensionPath, "out"),
-          ],
-        },
+            buildExtensionUri(context.extensionPath, "out")
+          ]
+        }
       );
       let bridge!: WebviewBridge;
       const repoFileWatcher = new RepoFileWatcher(() => {
@@ -97,7 +95,7 @@ export function activate(context: vscode.ExtensionContext) {
         repoManager,
         extensionState,
         avatarManager,
-        repoFileWatcher,
+        repoFileWatcher
       });
       currentPanel = createWebviewPanel({
         panel,
@@ -113,7 +111,7 @@ export function activate(context: vscode.ExtensionContext) {
           currentBridge = undefined;
         },
         onPanelShown,
-        initialRepo: repoPath,
+        initialRepo: repoPath
       });
     }),
     vscode.commands.registerCommand("neo-git-graph.clearAvatarCache", () => {
@@ -121,7 +119,7 @@ export function activate(context: vscode.ExtensionContext) {
     }),
     vscode.workspace.registerTextDocumentContentProvider(
       DiffDocProvider.scheme,
-      new DiffDocProvider(gitClient.getInstance),
+      new DiffDocProvider(gitClient.getInstance)
     ),
     vscode.workspace.onDidChangeConfiguration((e) => {
       if (e.affectsConfiguration("neo-git-graph.showStatusBarItem")) {
