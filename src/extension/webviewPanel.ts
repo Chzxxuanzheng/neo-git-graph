@@ -22,6 +22,7 @@ export function createWebviewPanel(opts: {
   repoManager: RepoManager;
   onDispose: () => void;
   onPanelShown: () => void;
+  initialRepo?: string;
 }) {
   const {
     panel,
@@ -33,8 +34,13 @@ export function createWebviewPanel(opts: {
     avatarManager,
     repoManager,
     onDispose,
-    onPanelShown
+    onPanelShown,
+    initialRepo
   } = opts;
+
+  if (initialRepo) {
+    extensionState.setLastActiveRepo(initialRepo);
+  }
 
   const disposables: vscode.Disposable[] = [];
   let isGraphViewLoaded = false;

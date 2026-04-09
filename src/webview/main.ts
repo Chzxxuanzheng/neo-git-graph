@@ -135,7 +135,15 @@ class GitGraphView {
 
     let repoPaths = Object.keys(repos),
       changedRepo = false;
-    if (typeof repos[this.currentRepo] === "undefined") {
+    
+    // Check if we need to update the current repo
+    if (lastActiveRepo !== null && typeof repos[lastActiveRepo] !== "undefined" && lastActiveRepo !== this.currentRepo) {
+      // Explicitly switching to a different repo
+      this.currentRepo = lastActiveRepo;
+      this.saveState();
+      changedRepo = true;
+    } else if (typeof repos[this.currentRepo] === "undefined") {
+      // Current repo no longer exists
       this.currentRepo =
         lastActiveRepo !== null && typeof repos[lastActiveRepo] !== "undefined"
           ? lastActiveRepo

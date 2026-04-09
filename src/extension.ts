@@ -24,12 +24,34 @@ export function activate(context: vscode.ExtensionContext) {
   const gitClient = gitClientFactory(extensionState.getLastActiveRepo() ?? "", config.gitPath());
   const repoManager = new RepoManager(extensionState, statusBarItem, config);
   let currentPanel: WebviewPanel | undefined;
+  let currentBridge: WebviewBridge | undefined;
 
   context.subscriptions.push(
     outputChannel,
-    vscode.commands.registerCommand("neo-git-graph.view", () => {
+    vscode.commands.registerCommand("neo-git-graph.view", (resource) => {
+      let repoPath: string | undefined;
+      
+      if (resource && typeof resource === "object") {
+        if ("rootUri" in resource) {
+          repoPath = resource.rootUri.fsPath;
+        } else if ("uri" in resource) {
+          repoPath = resource.uri.fsPath;
+        }
+      }
+      
       const column = vscode.window.activeTextEditor?.viewColumn;
       if (currentPanel) {
+        if (repoPath) {
+          gitClient.setRepo(repoPath);
+          extensionState.setLastActiveRepo(repoPath);
+          if (currentBridge) {
+            currentBridge.post({
+              command: "loadRepos",
+              repos: repoManager.getRepos(),
+              lastActiveRepo: repoPath
+            });
+          }
+        }
         currentPanel.reveal(column);
         return;
       }
@@ -50,6 +72,7 @@ export function activate(context: vscode.ExtensionContext) {
         if (panel.visible) bridge.post({ command: "refresh" });
       });
       bridge = webviewBridgeFactory(panel.webview, repoFileWatcher);
+      currentBridge = bridge;
       avatarManager.registerBridge(bridge.post.bind(bridge));
       const { onPanelShown } = registerMessageHandlers(bridge, {
         config,
@@ -70,8 +93,10 @@ export function activate(context: vscode.ExtensionContext) {
         repoManager,
         onDispose: () => {
           currentPanel = undefined;
+          currentBridge = undefined;
         },
-        onPanelShown
+        onPanelShown,
+        initialRepo: repoPath
       });
     }),
     vscode.commands.registerCommand("neo-git-graph.clearAvatarCache", () => {
