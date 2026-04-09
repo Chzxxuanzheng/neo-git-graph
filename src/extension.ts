@@ -30,7 +30,7 @@ export function activate(context: vscode.ExtensionContext) {
     outputChannel,
     vscode.commands.registerCommand("neo-git-graph.view", (resource) => {
       let repoPath: string | undefined;
-      
+
       if (resource && typeof resource === "object") {
         if ("rootUri" in resource) {
           repoPath = resource.rootUri.fsPath;
@@ -38,7 +38,7 @@ export function activate(context: vscode.ExtensionContext) {
           repoPath = resource.uri.fsPath;
         }
       }
-      
+
       const column = vscode.window.activeTextEditor?.viewColumn;
       if (currentPanel) {
         if (repoPath) {
