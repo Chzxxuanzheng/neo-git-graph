@@ -2,7 +2,7 @@ import * as vscode from "vscode";
 
 import { AvatarManager } from "./avatarManager";
 import { gitClientFactory } from "./backend/gitClient";
-import { buildExtensionUri } from "./backend/utils/path";
+import { buildExtensionUri, getPathFromStr } from "./backend/utils/path";
 import { config } from "./config";
 import { DiffDocProvider } from "./diffDocProvider";
 import { registerMessageHandlers } from "./extension/messageHandler";
@@ -28,6 +28,7 @@ export function activate(context: vscode.ExtensionContext) {
   const repoSearch = createRepoSearch(repoManager, config);
   const repoWatcher = createRepoWatcher(repoManager, config, repoSearch);
   let currentPanel: WebviewPanel | undefined;
+  let currentBridge: WebviewBridge | undefined;
 
   void (async () => {
     repoManager.removeReposNotInWorkspace();
@@ -38,9 +39,34 @@ export function activate(context: vscode.ExtensionContext) {
 
   context.subscriptions.push(
     outputChannel,
-    vscode.commands.registerCommand("neo-git-graph.view", () => {
+    vscode.commands.registerCommand("neo-git-graph.view", (resource) => {
+      let repoPath: string | undefined;
+
+      if (resource && typeof resource === "object") {
+        if (typeof resource?.rootUri?.fsPath === "string") {
+          repoPath = getPathFromStr(resource.rootUri.fsPath);
+        } else if (typeof resource?.uri?.fsPath === "string") {
+          repoPath = getPathFromStr(resource.uri.fsPath);
+        }
+      }
+
+      const repos = repoManager.getRepos();
+
+      if (repoPath && !repos[repoPath]) repoPath = undefined;
+
       const column = vscode.window.activeTextEditor?.viewColumn;
       if (currentPanel) {
+        if (repoPath) {
+          gitClient.setRepo(repoPath);
+          extensionState.setLastActiveRepo(repoPath);
+          if (currentBridge) {
+            currentBridge.post({
+              command: "loadRepos",
+              repos: repos,
+              lastActiveRepo: repoPath
+            });
+          }
+        }
         currentPanel.reveal(column);
         return;
       }
@@ -61,6 +87,7 @@ export function activate(context: vscode.ExtensionContext) {
         if (panel.visible) bridge.post({ command: "refresh" });
       });
       bridge = webviewBridgeFactory(panel.webview, repoFileWatcher);
+      currentBridge = bridge;
       avatarManager.registerBridge(bridge.post.bind(bridge));
       const { onPanelShown } = registerMessageHandlers(bridge, {
         config,
@@ -79,8 +106,10 @@ export function activate(context: vscode.ExtensionContext) {
         extensionState,
         avatarManager,
         repoManager,
+        initialRepo: repoPath,
         onDispose: () => {
           currentPanel = undefined;
+          currentBridge = undefined;
         },
         onPanelShown
       });
