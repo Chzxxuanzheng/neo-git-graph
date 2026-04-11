@@ -83,7 +83,7 @@ class GitGraphView {
           this.branchDropdown.setSelected(defaultBranch);
           values = [defaultBranch];
         } else if (change === SHOW_ALL && values.includes(SHOW_ALL)) {
-          // when selected show all, should remove show all from selected
+          // when selected show all, should clear other selections and keep show all selected
           const options = [{ name: l10n.showAll, value: SHOW_ALL }];
           for (const branch of this.gitBranches) {
             options.push({

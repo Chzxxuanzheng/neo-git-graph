@@ -225,7 +225,7 @@ export class CheckboxDropdown extends AbstractDropdown {
   public setSelected(value: string) {
     if (!this.options.some((i) => i.value === value))
       throw new Error(
-        `unknown options: ${value}, available options: ${this.options.map((i) => i.value).join(", ")}`
+        `unknown option: "${value}", available options: ${this.options.map((i) => `"${i.value}"`).join(", ")}`
       );
     this.selectedOptions.add(value);
     this.render();
@@ -234,7 +234,7 @@ export class CheckboxDropdown extends AbstractDropdown {
   public setUnSelected(value: string) {
     if (!this.options.some((i) => i.value === value))
       throw new Error(
-        `unknown options: ${value}, available options: ${this.options.map((i) => i.value).join(", ")}`
+        `unknown option: "${value}", available options: ${this.options.map((i) => `"${i.value}"`).join(", ")}`
       );
     this.selectedOptions.delete(value);
     this.render();
