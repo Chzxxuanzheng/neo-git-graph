@@ -6,28 +6,20 @@ interface DropdownOption {
   value: string;
 }
 
-export class Dropdown {
-  private options: DropdownOption[] = [];
-  private selectedOption: number = 0;
-  private dropdownVisible: boolean = false;
-  private showInfo: boolean;
-  private changeCallback: { (value: string): void };
+abstract class AbstractDropdown {
+  protected options: DropdownOption[] = [];
+  protected dropdownVisible: boolean = false;
+  protected showInfo: boolean;
 
-  private elem: HTMLElement;
-  private currentValueElem: HTMLDivElement;
-  private menuElem: HTMLDivElement;
-  private optionsElem: HTMLDivElement;
-  private noResultsElem: HTMLDivElement;
-  private filterInput: HTMLInputElement;
+  protected elem: HTMLElement;
+  protected currentValueElem: HTMLDivElement;
+  protected menuElem: HTMLDivElement;
+  protected optionsElem: HTMLDivElement;
+  protected noResultsElem: HTMLDivElement;
+  protected filterInput: HTMLInputElement;
 
-  constructor(
-    id: string,
-    showInfo: boolean,
-    dropdownType: string,
-    changeCallback: { (value: string): void }
-  ) {
+  constructor(id: string, showInfo: boolean, dropdownType: string) {
     this.showInfo = showInfo;
-    this.changeCallback = changeCallback;
     this.elem = document.getElementById(id)!;
 
     let filter = document.createElement("div");
@@ -59,7 +51,7 @@ export class Dropdown {
           this.dropdownVisible = !this.dropdownVisible;
           if (this.dropdownVisible) {
             this.filterInput.value = "";
-            this.filter();
+            this.onFilterChange();
           }
           this.elem.classList.toggle("dropdownOpen");
           if (this.dropdownVisible) this.filterInput.focus();
@@ -67,20 +59,7 @@ export class Dropdown {
           if ((<HTMLElement>e.target).closest(".dropdown") !== this.elem) {
             this.close();
           } else {
-            let option = <HTMLElement | null>(<HTMLElement>e.target).closest(".dropdownOption");
-            if (
-              option !== null &&
-              option.parentNode === this.optionsElem &&
-              typeof option.dataset.id !== "undefined"
-            ) {
-              let selectedOption = parseInt(option.dataset.id!);
-              this.close();
-              if (this.selectedOption !== selectedOption) {
-                this.selectedOption = selectedOption;
-                this.render();
-                this.changeCallback(this.options[this.selectedOption].value);
-              }
-            }
+            this.handleOptionClick(e.target as HTMLElement);
           }
         }
       },
@@ -94,7 +73,69 @@ export class Dropdown {
       },
       true
     );
-    this.filterInput.addEventListener("keyup", () => this.filter());
+    this.filterInput.addEventListener("keyup", () => this.onFilterChange());
+  }
+
+  protected handleOptionClick(target: HTMLElement) {
+    let option = <HTMLElement | null>target.closest(".dropdownOption");
+    if (
+      option !== null &&
+      option.parentNode === this.optionsElem &&
+      typeof option.dataset.id !== "undefined"
+    ) {
+      this.onOptionSelected(parseInt(option.dataset.id!));
+    }
+  }
+
+  protected abstract onOptionSelected(index: number): void;
+  protected abstract render(): void;
+  protected abstract onFilterChange(): void;
+
+  public abstract setOptions(options: DropdownOption[], ...args: unknown[]): void;
+
+  public refresh() {
+    if (this.options.length > 0) this.render();
+  }
+
+  protected filter() {
+    let val = this.filterInput.value.toLowerCase(),
+      match,
+      matches = false;
+    for (let i = 0; i < this.options.length; i++) {
+      match = this.options[i].name.toLowerCase().indexOf(val) > -1;
+      (<HTMLElement>this.optionsElem.children[i]).style.display = match ? "block" : "none";
+      if (match) matches = true;
+    }
+    this.filterInput.style.display = "block";
+    this.noResultsElem.style.display = matches ? "none" : "block";
+  }
+
+  protected close() {
+    this.elem.classList.remove("dropdownOpen");
+    this.dropdownVisible = false;
+  }
+
+  protected updateCurrentValueWidth() {
+    this.currentValueElem.style.width =
+      Math.max(
+        this.menuElem.offsetWidth + (this.showInfo && this.menuElem.offsetHeight < 272 ? 0 : 12),
+        130
+      ) + "px";
+  }
+}
+
+export class Dropdown extends AbstractDropdown {
+  private selectedOption: number = 0;
+  private changeCallback: { (value: string): void };
+
+  constructor(
+    id: string,
+    showInfo: boolean,
+    dropdownType: string,
+    changeCallback: { (value: string): void }
+  ) {
+    super(id, showInfo, dropdownType);
+    this.changeCallback = changeCallback;
   }
 
   public setOptions(options: DropdownOption[], selected: string) {
@@ -110,11 +151,16 @@ export class Dropdown {
     this.render();
   }
 
-  public refresh() {
-    if (this.options.length > 0) this.render();
+  protected onOptionSelected(index: number): void {
+    this.close();
+    if (this.selectedOption !== index) {
+      this.selectedOption = index;
+      this.render();
+      this.changeCallback(this.options[this.selectedOption].value);
+    }
   }
 
-  private render() {
+  protected render() {
     this.elem.classList.add("loaded");
     this.currentValueElem.innerHTML = escapeHtml(this.options[this.selectedOption].name);
     let html = "";
@@ -142,30 +188,127 @@ export class Dropdown {
     this.menuElem.style.cssText = "opacity:0; display:block;";
     // Width must be at least 130px for the filter elements. Max height for the dropdown is [filter (31px) + 9.5 * dropdown item (28px) = 297px]
     // Don't need to add 12px if showing info icons and scrollbar isn't needed. The scrollbar isn't needed if: menuElem height + filter input (25px) < 297px
-    this.currentValueElem.style.width =
-      Math.max(
-        this.menuElem.offsetWidth + (this.showInfo && this.menuElem.offsetHeight < 272 ? 0 : 12),
-        130
-      ) + "px";
+    this.updateCurrentValueWidth();
     this.menuElem.style.cssText = "right:0; overflow-y:auto; max-height:297px;";
     if (this.dropdownVisible) this.filter();
   }
 
-  private filter() {
-    let val = this.filterInput.value.toLowerCase(),
-      match,
-      matches = false;
+  protected onFilterChange() {
+    this.filter();
+  }
+}
+
+export class CheckboxDropdown extends AbstractDropdown {
+  private selectedOptions: Set<string> = new Set();
+  private multipleChangeCallback: { (values: string[], change: string): void };
+
+  constructor(
+    id: string,
+    showInfo: boolean,
+    dropdownType: string,
+    changeCallback: { (values: string[], change: string): void }
+  ) {
+    super(id, showInfo, dropdownType);
+    this.multipleChangeCallback = changeCallback;
+  }
+
+  public setOptions(options: DropdownOption[], selectedValues: string[]) {
+    this.options = options;
+    this.selectedOptions.clear();
+    for (const value of selectedValues) {
+      this.selectedOptions.add(value);
+    }
+    if (options.length <= 1) this.close();
+    this.render();
+  }
+
+  public setSelected(value: string) {
+    if (!this.options.some((i) => i.value === value))
+      throw new Error(
+        `unknown options: ${value}, available options: ${this.options.map((i) => i.value).join(", ")}`
+      );
+    this.selectedOptions.add(value);
+    this.render();
+  }
+
+  public setUnSelected(value: string) {
+    if (!this.options.some((i) => i.value === value))
+      throw new Error(
+        `unknown options: ${value}, available options: ${this.options.map((i) => i.value).join(", ")}`
+      );
+    this.selectedOptions.delete(value);
+    this.render();
+  }
+
+  protected onOptionSelected(index: number): void {
+    const value = this.options[index].value;
+    if (this.selectedOptions.has(value)) {
+      this.selectedOptions.delete(value);
+    } else {
+      this.selectedOptions.add(value);
+    }
+    this.render();
+    this.emitChange(value);
+  }
+
+  protected render() {
+    this.elem.classList.add("loaded");
+
+    const selectedNames = this.options
+      .filter((i) => this.selectedOptions.has(i.value))
+      .map((i) => i.name)
+      .join(" & ");
+    this.currentValueElem.innerHTML = escapeHtml(selectedNames);
+
+    let html = "";
+    for (const [i, option] of Object.entries(this.options)) {
+      const isSelected = this.selectedOptions.has(option.value);
+      html +=
+        '<div class="dropdownOption' +
+        (isSelected ? " selected" : "") +
+        '" data-id="' +
+        i +
+        '"><input type="checkbox" class="dropdownCheckbox" ' +
+        (isSelected ? "checked" : "") +
+        "/> " +
+        escapeHtml(option.name) +
+        (this.showInfo
+          ? '<div class="dropdownOptionInfo" title="' +
+            escapeHtml(option.value) +
+            '">' +
+            svgIcons.info +
+            "</div>"
+          : "") +
+        "</div>";
+    }
+    this.optionsElem.className = "dropdownOptions" + (this.showInfo ? " showInfo" : "");
+    this.optionsElem.innerHTML = html;
+    this.filterInput.style.display = "none";
+    this.noResultsElem.style.display = "none";
+    this.menuElem.style.cssText = "opacity:0; display:block;";
+    this.updateCurrentValueWidth();
+    this.menuElem.style.cssText = "right:0; overflow-y:auto; max-height:297px;";
+
+    if (this.dropdownVisible) this.filterCheckboxes();
+  }
+
+  protected onFilterChange() {
+    this.filterCheckboxes();
+  }
+
+  private filterCheckboxes() {
+    const val = this.filterInput.value.toLowerCase();
+    let matches = false;
     for (let i = 0; i < this.options.length; i++) {
-      match = this.options[i].name.toLowerCase().indexOf(val) > -1;
-      (<HTMLElement>this.optionsElem.children[i]).style.display = match ? "block" : "none";
+      const match = this.options[i].name.toLowerCase().indexOf(val) > -1;
+      (this.optionsElem.children[i] as HTMLElement).style.display = match ? "block" : "none";
       if (match) matches = true;
     }
     this.filterInput.style.display = "block";
     this.noResultsElem.style.display = matches ? "none" : "block";
   }
 
-  private close() {
-    this.elem.classList.remove("dropdownOpen");
-    this.dropdownVisible = false;
+  private emitChange(change: string) {
+    this.multipleChangeCallback(Array.from(this.selectedOptions), change);
   }
 }

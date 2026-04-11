@@ -7,7 +7,7 @@ import type {
   GitResetMode
 } from "@/backend/types";
 
-import { Dropdown } from "./dropdown";
+import { CheckboxDropdown, Dropdown } from "./dropdown";
 import { Graph } from "./graph";
 import { getMonth, pad2 } from "./utils/date";
 import { addListenerToClass, blinkHeadRow, insertAfter } from "./utils/dom";
@@ -15,6 +15,8 @@ import { arraysEqual, ELLIPSIS, refInvalid } from "./utils/git";
 import { escapeHtml, unescapeHtml } from "./utils/html";
 import { svgIcons } from "./utils/icons";
 import { getVSCodeStyle, sendMessage, vscode } from "./utils/vscode";
+
+const SHOW_ALL = "";
 
 class GitGraphView {
   private gitRepos: GG.GitRepoSet;
@@ -24,7 +26,7 @@ class GitGraphView {
   private commitHead: string | null = null;
   private commitLookup: { [hash: string]: number } = {};
   private avatars: AvatarImageCollection = {};
-  private currentBranch: string | null = null;
+  private currentBranches: string[] | null = null;
   private currentRepo!: string;
 
   private graph: Graph;
@@ -37,7 +39,7 @@ class GitGraphView {
   private tableElem: HTMLElement;
   private footerElem: HTMLElement;
   private repoDropdown: Dropdown;
-  private branchDropdown: Dropdown;
+  private branchDropdown: CheckboxDropdown;
   private showRemoteBranchesElem: HTMLInputElement;
   private scrollShadowElem: HTMLElement;
 
@@ -60,19 +62,50 @@ class GitGraphView {
       this.currentRepo = value;
       this.maxCommits = this.config.initialLoadCommits;
       this.expandedCommit = null;
-      this.currentBranch = null;
+      this.currentBranches = null;
       this.saveState();
       sendMessage({ command: "selectRepo", repo: value });
       this.refresh(true);
     });
-    this.branchDropdown = new Dropdown("branchSelect", false, l10n.branch, (value) => {
-      this.currentBranch = value;
-      this.maxCommits = this.config.initialLoadCommits;
-      this.expandedCommit = null;
-      this.saveState();
-      this.renderShowLoading();
-      this.requestLoadCommits(true, () => {});
-    });
+    this.branchDropdown = new CheckboxDropdown(
+      "branchSelect",
+      false,
+      l10n.branch,
+      (values, change) => {
+        // special handling show all
+
+        if (values.length === 0) {
+          // no selected, should add show all / current branch to selected
+          let defaultBranch: string;
+          if (this.config.showCurrentBranchByDefault && this.gitBranchHead)
+            defaultBranch = this.gitBranchHead;
+          else defaultBranch = SHOW_ALL;
+          this.branchDropdown.setSelected(defaultBranch);
+          values = [defaultBranch];
+        } else if (change === SHOW_ALL && values.includes(SHOW_ALL)) {
+          // when selected show all, should remove show all from selected
+          const options = [{ name: l10n.showAll, value: SHOW_ALL }];
+          for (const branch of this.gitBranches) {
+            options.push({
+              name: branch.startsWith("remotes/") ? branch.substring(8) : branch,
+              value: branch
+            });
+          }
+          this.branchDropdown.setOptions(options, [SHOW_ALL]);
+          values = [SHOW_ALL];
+        } else if (change !== SHOW_ALL && values.includes(SHOW_ALL)) {
+          // when selected another, should remove show all from selected
+          this.branchDropdown.setUnSelected(SHOW_ALL);
+          values = values.filter((v) => v !== SHOW_ALL);
+        }
+        this.currentBranches = values;
+        this.maxCommits = this.config.initialLoadCommits;
+        this.expandedCommit = null;
+        this.saveState();
+        this.renderShowLoading();
+        this.requestLoadCommits(true, () => {});
+      }
+    );
     this.showRemoteBranchesElem = <HTMLInputElement>(
       document.getElementById("showRemoteBranchesCheckbox")!
     );
@@ -97,7 +130,7 @@ class GitGraphView {
 
     this.renderShowLoading();
     if (prevState) {
-      this.currentBranch = prevState.currentBranch;
+      this.currentBranches = prevState.currentBranches;
       this.showRemoteBranches = prevState.showRemoteBranches;
       this.showRemoteBranchesElem.checked = this.showRemoteBranches;
       if (typeof this.gitRepos[prevState.currentRepo] !== "undefined") {
@@ -139,7 +172,10 @@ class GitGraphView {
       i;
     for (i = 0; i < repoPaths.length; i++) {
       repoComps = repoPaths[i].split("/");
-      options.push({ name: repoComps[repoComps.length - 1], value: repoPaths[i] });
+      options.push({
+        name: repoComps[repoComps.length - 1],
+        value: repoPaths[i]
+      });
     }
     document.getElementById("repoControl")!.style.display =
       repoPaths.length > 1 ? "inline" : "none";
@@ -171,18 +207,20 @@ class GitGraphView {
 
     this.gitBranches = branchOptions;
     this.gitBranchHead = branchHead;
-    if (
-      this.currentBranch === null ||
-      (this.currentBranch !== "" && this.gitBranches.indexOf(this.currentBranch) === -1)
-    ) {
-      this.currentBranch =
-        this.config.showCurrentBranchByDefault && this.gitBranchHead !== null
-          ? this.gitBranchHead
-          : "";
+    if (this.currentBranches === null) {
+      if (this.config.showCurrentBranchByDefault && this.gitBranchHead)
+        this.currentBranches = [this.gitBranchHead];
+      else this.currentBranches = [SHOW_ALL];
+    } else {
+      const newData = [];
+      for (const branch of this.currentBranches) {
+        if (this.gitBranches.includes(branch)) newData.push(branch);
+      }
+      this.currentBranches = newData.length > 0 ? newData : [SHOW_ALL];
     }
     this.saveState();
 
-    let options = [{ name: l10n.showAll, value: "" }];
+    let options = [{ name: l10n.showAll, value: SHOW_ALL }];
     for (let i = 0; i < this.gitBranches.length; i++) {
       options.push({
         name:
@@ -192,7 +230,7 @@ class GitGraphView {
         value: this.gitBranches[i]
       });
     }
-    this.branchDropdown.setOptions(options, this.currentBranch);
+    this.branchDropdown.setOptions(options, this.currentBranches!);
 
     this.triggerLoadBranchesCallback(true, isRepo);
   }
@@ -324,7 +362,7 @@ class GitGraphView {
     sendMessage({
       command: "loadCommits",
       repo: this.currentRepo!,
-      branchName: this.currentBranch !== null ? this.currentBranch : "",
+      branchNames: this.currentBranches !== null ? this.currentBranches : [SHOW_ALL],
       maxCommits: this.maxCommits,
       showRemoteBranches: this.showRemoteBranches,
       hard: hard
@@ -364,7 +402,7 @@ class GitGraphView {
       commits: this.commits,
       commitHead: this.commitHead,
       avatars: this.avatars,
-      currentBranch: this.currentBranch,
+      currentBranches: this.currentBranches,
       currentRepo: this.currentRepo,
       moreCommitsAvailable: this.moreCommitsAvailable,
       maxCommits: this.maxCommits,
@@ -517,14 +555,24 @@ class GitGraphView {
               showFormDialog(
                 l10n.dialogAddTagTitle.replace("{0}", "<b><i>" + abbrevCommit(hash) + "</i></b>"),
                 [
-                  { type: "text-ref" as const, name: l10n.dialogAddTagName, default: "" },
+                  {
+                    type: "text-ref" as const,
+                    name: l10n.dialogAddTagName,
+                    default: ""
+                  },
                   {
                     type: "select" as const,
                     name: l10n.dialogAddTagType,
                     default: "annotated",
                     options: [
-                      { name: l10n.dialogAddTagTypeAnnotated, value: "annotated" },
-                      { name: l10n.dialogAddTagTypeLightweight, value: "lightweight" }
+                      {
+                        name: l10n.dialogAddTagTypeAnnotated,
+                        value: "annotated"
+                      },
+                      {
+                        name: l10n.dialogAddTagTypeLightweight,
+                        value: "lightweight"
+                      }
                     ]
                   },
                   {
@@ -746,7 +794,11 @@ class GitGraphView {
           {
             title: l10n.copyCommitHash,
             onClick: () => {
-              sendMessage({ command: "copyToClipboard", type: "Commit Hash", data: hash });
+              sendMessage({
+                command: "copyToClipboard",
+                type: "Commit Hash",
+                data: hash
+              });
             }
           }
         ],
@@ -778,7 +830,11 @@ class GitGraphView {
                   .replace("{0}", l10n.labelTag)
                   .replace("{1}", "<b><i>" + escapeHtml(refName) + "</i></b>"),
                 () => {
-                  sendMessage({ command: "deleteTag", repo: this.currentRepo!, tagName: refName });
+                  sendMessage({
+                    command: "deleteTag",
+                    repo: this.currentRepo!,
+                    tagName: refName
+                  });
                 },
                 null
               );
@@ -793,7 +849,11 @@ class GitGraphView {
                   "<b><i>" + escapeHtml(refName) + "</i></b>"
                 ),
                 () => {
-                  sendMessage({ command: "pushTag", repo: this.currentRepo!, tagName: refName });
+                  sendMessage({
+                    command: "pushTag",
+                    repo: this.currentRepo!,
+                    tagName: refName
+                  });
                   showActionRunningDialog(l10n.pushingTag);
                 },
                 null
@@ -896,7 +956,11 @@ class GitGraphView {
       menu.push(null, {
         title: copyTitle,
         onClick: () => {
-          sendMessage({ command: "copyToClipboard", type: copyType, data: refName });
+          sendMessage({
+            command: "copyToClipboard",
+            type: copyType,
+            data: refName
+          });
         }
       });
       showContextMenu(<MouseEvent>e, menu, sourceElem);
@@ -1073,7 +1137,10 @@ class GitGraphView {
         this.repoDropdown.refresh();
         this.branchDropdown.refresh();
       }
-    }).observe(document.documentElement, { attributes: true, attributeFilter: ["style"] });
+    }).observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["style"]
+    });
   }
   private observeWebviewScroll() {
     let active = window.scrollY > 0;

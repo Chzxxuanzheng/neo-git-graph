@@ -12,7 +12,7 @@ const eolRegex = /\r\n|\r|\n/g;
 const gitLogSeparator = "XX7Nal-YARtTpjCikii9nJxER19D6diSyk-AWkPb";
 
 type LoadCommitsInput = {
-  branchName: string;
+  branchNames: string[];
   maxCommits: number;
   showRemoteBranches: boolean;
   hard: boolean;
@@ -55,7 +55,7 @@ async function getRefs(git: SimpleGit, showRemoteBranches: boolean): Promise<Git
 
 async function getLog(
   git: SimpleGit,
-  branch: string,
+  branches: string[],
   maxCommits: number,
   showRemoteBranches: boolean,
   dateType: DateType
@@ -63,11 +63,11 @@ async function getLog(
   const dateField = dateType === "Author Date" ? "%at" : "%ct";
   const format = ["%H", "%P", "%an", "%ae", dateField, "%s"].join(gitLogSeparator);
   const args = ["log", `--max-count=${maxCommits}`, `--format=${format}`, "--date-order"];
-  if (branch !== "") {
-    args.push(branch);
-  } else {
+  if (branches.length === 1 && branches[0] === "") {
     args.push("--branches", "--tags");
     if (showRemoteBranches) args.push("--remotes");
+  } else {
+    args.push(...branches);
   }
   try {
     const stdout = await git.raw(args);
@@ -105,8 +105,14 @@ export async function loadCommits(
   git: SimpleGit,
   input: LoadCommitsInput
 ): Promise<QueryResult<"loadCommits">> {
-  const { branchName, maxCommits, showRemoteBranches, hard, dateType, showUncommittedChanges } =
-    input;
+  const {
+    branchNames: branchName,
+    maxCommits,
+    showRemoteBranches,
+    hard,
+    dateType,
+    showUncommittedChanges
+  } = input;
 
   const [rawCommits, refData] = await Promise.all([
     getLog(git, branchName, maxCommits + 1, showRemoteBranches, dateType),
@@ -156,5 +162,10 @@ export async function loadCommits(
     }
   }
 
-  return { commits: commitNodes, head: refData.head, moreCommitsAvailable, hard };
+  return {
+    commits: commitNodes,
+    head: refData.head,
+    moreCommitsAvailable,
+    hard
+  };
 }

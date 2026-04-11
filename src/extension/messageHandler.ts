@@ -111,7 +111,7 @@ export function registerMessageHandlers(
     bridge.post({
       command: "loadCommits",
       ...(await loadCommits(gitClient.getInstance(), {
-        branchName: msg.branchName,
+        branchNames: msg.branchNames,
         maxCommits: msg.maxCommits,
         showRemoteBranches: msg.showRemoteBranches,
         hard: msg.hard,
