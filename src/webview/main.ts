@@ -505,14 +505,17 @@ class GitGraphView {
     this.makeTableResizable();
 
     if (this.moreCommitsAvailable) {
-      document.getElementById("loadMoreCommitsBtn")!.addEventListener("click", () => {
-        (<HTMLElement>document.getElementById("loadMoreCommitsBtn")!.parentNode!).innerHTML =
-          '<h2 id="loadingHeader">' + svgIcons.loading + l10n.loading + "</h2>";
-        this.maxCommits += this.config.loadMoreCommits;
-        this.hideCommitDetails();
-        this.saveState();
-        this.requestLoadCommits(true, () => {});
-      });
+      const loadMoreBtn = document.getElementById("loadMoreCommitsBtn");
+      if (loadMoreBtn) {
+        loadMoreBtn.addEventListener("click", () => {
+          (<HTMLElement>document.getElementById("loadMoreCommitsBtn")!.parentNode!).innerHTML =
+            '<h2 id="loadingHeader">' + svgIcons.loading + l10n.loading + "</h2>";
+          this.maxCommits += this.config.loadMoreCommits;
+          this.hideCommitDetails();
+          this.saveState();
+          this.requestLoadCommits(true, () => {});
+        });
+      }
     }
 
     if (this.expandedCommit !== null) {
@@ -997,6 +1000,10 @@ class GitGraphView {
     let columnWidths = this.gitRepos[this.currentRepo].columnWidths,
       mouseX = -1,
       col = -1;
+
+    if (cols.length === 0) {
+      return;
+    }
 
     const makeTableFixedLayout = () => {
       if (columnWidths !== null) {

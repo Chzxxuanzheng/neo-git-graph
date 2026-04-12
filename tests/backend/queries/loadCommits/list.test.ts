@@ -110,6 +110,53 @@ describe("loadCommits", () => {
     });
   });
 
+  it("filters commits by multiple branches", async () => {
+    const multiBranchRepo = makeRepo();
+    try {
+      fs.writeFileSync(path.join(multiBranchRepo, "file1"), "content1");
+      git(["add", "."], multiBranchRepo);
+      git(["commit", "-m", "commit on main"], multiBranchRepo);
+
+      git(["checkout", "-b", "branch1"], multiBranchRepo);
+      fs.writeFileSync(path.join(multiBranchRepo, "file2"), "content2");
+      git(["add", "."], multiBranchRepo);
+      git(["commit", "-m", "commit on branch1"], multiBranchRepo);
+
+      git(["checkout", "-b", "branch2"], multiBranchRepo);
+      fs.writeFileSync(path.join(multiBranchRepo, "file3"), "content3");
+      git(["add", "."], multiBranchRepo);
+      git(["commit", "-m", "commit on branch2"], multiBranchRepo);
+
+      git(["checkout", "main"], multiBranchRepo);
+
+      const resultBranch1And2 = await loadCommits(simpleGit(multiBranchRepo), {
+        branchNames: ["branch1", "branch2"],
+        maxCommits: 300,
+        showRemoteBranches: false,
+        hard: false,
+        dateType: "Author Date",
+        showUncommittedChanges: false
+      });
+
+      const resultAllBranches = await loadCommits(simpleGit(multiBranchRepo), {
+        branchNames: [SHOW_ALL],
+        maxCommits: 300,
+        showRemoteBranches: false,
+        hard: false,
+        dateType: "Author Date",
+        showUncommittedChanges: false
+      });
+
+      expect(resultBranch1And2.commits.length).toBeGreaterThan(0);
+      expect(resultAllBranches.commits.length).toBeGreaterThanOrEqual(
+        resultBranch1And2.commits.length
+      );
+      expect(resultBranch1And2.moreCommitsAvailable).toBe(false);
+    } finally {
+      fs.rmSync(multiBranchRepo, { recursive: true, force: true });
+    }
+  });
+
   it("filters commits to the given branch", async () => {
     const result = await loadCommits(simpleGit(repo), {
       branchNames: ["main"],

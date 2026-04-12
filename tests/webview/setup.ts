@@ -36,7 +36,17 @@ export function setupHtml(viewState: GG.GitGraphViewState) {
     </div>
     <div id="content">
       <div id="commitGraph"></div>
-      <div id="commitTable"></div>
+      <div id="commitTable">
+        <table>
+          <tr id="tableColHeaders">
+            <th id="tableHeaderGraphCol" class="tableColHeader">Graph</th>
+            <th class="tableColHeader">Description</th>
+            <th class="tableColHeader">Date</th>
+            <th class="tableColHeader">Author</th>
+            <th class="tableColHeader">Commit</th>
+          </tr>
+        </table>
+      </div>
     </div>
     <div id="footer"></div>
     <ul id="contextMenu"></ul>
