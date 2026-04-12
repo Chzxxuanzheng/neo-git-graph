@@ -162,10 +162,5 @@ export async function loadCommits(
     }
   }
 
-  return {
-    commits: commitNodes,
-    head: refData.head,
-    moreCommitsAvailable,
-    hard
-  };
+  return { commits: commitNodes, head: refData.head, moreCommitsAvailable, hard };
 }

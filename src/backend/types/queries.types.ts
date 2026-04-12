@@ -7,12 +7,7 @@ type QueryPayloads = {
   };
   loadBranches: {
     request: { showRemoteBranches: boolean; hard: boolean };
-    response: {
-      branches: string[];
-      head: string | null;
-      hard: boolean;
-      isRepo: boolean;
-    };
+    response: { branches: string[]; head: string | null; hard: boolean; isRepo: boolean };
   };
   loadCommits: {
     request: {

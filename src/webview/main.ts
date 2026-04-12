@@ -172,10 +172,7 @@ class GitGraphView {
       i;
     for (i = 0; i < repoPaths.length; i++) {
       repoComps = repoPaths[i].split("/");
-      options.push({
-        name: repoComps[repoComps.length - 1],
-        value: repoPaths[i]
-      });
+      options.push({ name: repoComps[repoComps.length - 1], value: repoPaths[i] });
     }
     document.getElementById("repoControl")!.style.display =
       repoPaths.length > 1 ? "inline" : "none";
@@ -555,24 +552,14 @@ class GitGraphView {
               showFormDialog(
                 l10n.dialogAddTagTitle.replace("{0}", "<b><i>" + abbrevCommit(hash) + "</i></b>"),
                 [
-                  {
-                    type: "text-ref" as const,
-                    name: l10n.dialogAddTagName,
-                    default: ""
-                  },
+                  { type: "text-ref" as const, name: l10n.dialogAddTagName, default: "" },
                   {
                     type: "select" as const,
                     name: l10n.dialogAddTagType,
                     default: "annotated",
                     options: [
-                      {
-                        name: l10n.dialogAddTagTypeAnnotated,
-                        value: "annotated"
-                      },
-                      {
-                        name: l10n.dialogAddTagTypeLightweight,
-                        value: "lightweight"
-                      }
+                      { name: l10n.dialogAddTagTypeAnnotated, value: "annotated" },
+                      { name: l10n.dialogAddTagTypeLightweight, value: "lightweight" }
                     ]
                   },
                   {
@@ -794,11 +781,7 @@ class GitGraphView {
           {
             title: l10n.copyCommitHash,
             onClick: () => {
-              sendMessage({
-                command: "copyToClipboard",
-                type: "Commit Hash",
-                data: hash
-              });
+              sendMessage({ command: "copyToClipboard", type: "Commit Hash", data: hash });
             }
           }
         ],
@@ -830,11 +813,7 @@ class GitGraphView {
                   .replace("{0}", l10n.labelTag)
                   .replace("{1}", "<b><i>" + escapeHtml(refName) + "</i></b>"),
                 () => {
-                  sendMessage({
-                    command: "deleteTag",
-                    repo: this.currentRepo!,
-                    tagName: refName
-                  });
+                  sendMessage({ command: "deleteTag", repo: this.currentRepo!, tagName: refName });
                 },
                 null
               );
@@ -849,11 +828,7 @@ class GitGraphView {
                   "<b><i>" + escapeHtml(refName) + "</i></b>"
                 ),
                 () => {
-                  sendMessage({
-                    command: "pushTag",
-                    repo: this.currentRepo!,
-                    tagName: refName
-                  });
+                  sendMessage({ command: "pushTag", repo: this.currentRepo!, tagName: refName });
                   showActionRunningDialog(l10n.pushingTag);
                 },
                 null
@@ -956,11 +931,7 @@ class GitGraphView {
       menu.push(null, {
         title: copyTitle,
         onClick: () => {
-          sendMessage({
-            command: "copyToClipboard",
-            type: copyType,
-            data: refName
-          });
+          sendMessage({ command: "copyToClipboard", type: copyType, data: refName });
         }
       });
       showContextMenu(<MouseEvent>e, menu, sourceElem);
@@ -1137,10 +1108,7 @@ class GitGraphView {
         this.repoDropdown.refresh();
         this.branchDropdown.refresh();
       }
-    }).observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ["style"]
-    });
+    }).observe(document.documentElement, { attributes: true, attributeFilter: ["style"] });
   }
   private observeWebviewScroll() {
     let active = window.scrollY > 0;
