@@ -122,6 +122,7 @@ describe("loadCommits", () => {
       git(["add", "."], multiBranchRepo);
       git(["commit", "-m", "commit on branch1"], multiBranchRepo);
 
+      git(["checkout", "main"], multiBranchRepo);
       git(["checkout", "-b", "branch2"], multiBranchRepo);
       fs.writeFileSync(path.join(multiBranchRepo, "file3"), "content3");
       git(["add", "."], multiBranchRepo);
@@ -147,7 +148,11 @@ describe("loadCommits", () => {
         showUncommittedChanges: false
       });
 
+      const branch1And2Messages = resultBranch1And2.commits.map((commit) => commit.message);
+
       expect(resultBranch1And2.commits.length).toBeGreaterThan(0);
+      expect(branch1And2Messages).toContain("commit on branch1");
+      expect(branch1And2Messages).toContain("commit on branch2");
       expect(resultAllBranches.commits.length).toBeGreaterThanOrEqual(
         resultBranch1And2.commits.length
       );

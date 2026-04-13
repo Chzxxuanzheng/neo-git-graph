@@ -105,17 +105,11 @@ export async function loadCommits(
   git: SimpleGit,
   input: LoadCommitsInput
 ): Promise<QueryResult<"loadCommits">> {
-  const {
-    branchNames: branchName,
-    maxCommits,
-    showRemoteBranches,
-    hard,
-    dateType,
-    showUncommittedChanges
-  } = input;
+  const { branchNames, maxCommits, showRemoteBranches, hard, dateType, showUncommittedChanges } =
+    input;
 
   const [rawCommits, refData] = await Promise.all([
-    getLog(git, branchName, maxCommits + 1, showRemoteBranches, dateType),
+    getLog(git, branchNames, maxCommits + 1, showRemoteBranches, dateType),
     getRefs(git, showRemoteBranches)
   ]);
 
